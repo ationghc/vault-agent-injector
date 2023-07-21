@@ -1,3 +1,22 @@
+**Kubernetes Objectives:**
+- Distinguish between kubernetes pod container types
+  - Main App Container
+  - initContainer
+  - sideCar Container
+- Create a kubernetes deployment
+- Check Container and pod status
+- Investigate container logs
+- Annotate a running deployment
+- Mutate pod to include initContainer and sideCar container
+- kubectl cli: patch,get,logs and describe
+
+**Vault Objectives:**
+- Deploy an application that is able to retreive secrets from vault, using vault-k8s vault-injector
+- Create a vault policy & read policy
+- Enable kv secrets engine
+- Create a secret in kv secrets engine path
+- Create a kubernetes auth method role
+
 # vault-agent-injector
 The Vault Agent Injector alters pods to include 2 Vault containers, that'll retreive secrets from vault and store the secrets in a shared volume, allowing the main application container access to retreive the vault secret. 
 
@@ -5,11 +24,15 @@ We're going to create the application pod in away that it is expected to fail. T
 
 **Step 1.**
 Clone the nginx-deployment git repo 
-  CMD: git clone https://github.com/ationghc/vault-agent-injector.git
+  
+  CMD: 
+  git clone https://github.com/ationghc/vault-agent-injector.git
 
 **Step 2.**
 Create an nginx-deployment with 3 replicas using the nginx-deployment.yaml supplied in this repo.
- CMD: cd vault-agent-injector; kubectl apply -f nginx-deployment.yaml
+ 
+ CMD: 
+ cd vault-agent-injector; kubectl apply -f nginx-deployment.yaml
 
 **Step 3.**
 Check the status of the nginx-deployment:
@@ -217,11 +240,17 @@ Next step is to create a vault policy to allow read access to the kv secret.
 Create a vault policy named test-app with read permissions on kv secrets path "test/secret/super_secret"
 
 CMD:
+
 vault policy write test-app - <<EOF
+
 path "test/secret/super_secret" {
-   capabilities = ["read"]
+
+capabilities = ["read"]
+
 }
+
 EOF
+
 
 **Step 15.**
 Read vault policy test-app.
