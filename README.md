@@ -38,7 +38,9 @@ Create an nginx-deployment with 3 replicas using the nginx-deployment.yaml suppl
 
 **Step 3.**
 Check the status of the nginx-deployment:
-  CMD: kubectl get deploy nginx-deployment
+  
+  CMD: 
+  kubectl get deploy nginx-deployment
 
 **Output of k get deploy**
   NAME               READY   UP-TO-DATE   AVAILABLE   AGE
@@ -82,10 +84,12 @@ NewReplicaSet:   nginx-deployment-585f4cdbf (3/3 replicas created)
 Events:          <none>
 
 Since we've checked the state of the deployment, the next step is to check the state of the pods.
-**Step 5.**
 
+**Step 5.**
 List only the nginx application pods. Use the -l argument to specify only the pods that have the label apps=nginx. 
-  CMD: kubectl get po -l app=nginx 
+  
+  CMD: 
+  kubectl get po -l app=nginx 
 
                                         PODS Are Stuck In An Initialization Status
 NAME                               READY   STATUS     RESTARTS   AGE
@@ -121,7 +125,8 @@ Execute kubectl describe on an nginx application pod
   - vault-agent: container runs through out the lifecycle of the pod and continously checks for updated secrets.
     - whereas the init container terminates after it executes and retreives the initial secret from vault successfully.  
 
-  CMD: kubectl describe po nginx-deployment-585f4cdbf-529qg
+  CMD: 
+  kubectl describe po nginx-deployment-585f4cdbf-529qg
 
 The kubectl describe po command
   - Describes the state of the pod and each container.
@@ -160,7 +165,8 @@ Check the logs for the vault-agent-init container to understand why the other co
   - Usually when you run kubectl logs, it'll output the logs for the main container.
   - Since the main container didn't start, specify the running initContainer vault-agent-init by using the -c flag.
 
-  CMD: kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
+  CMD: 
+  kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
 
 **Example of log errors in the application pods initContainer vault-agent-init.**
 
@@ -187,10 +193,13 @@ The next step is to check the kubernetes auth role.
 
 **Step 8.**
   - exec into vault pod
-    CMD: kubectl exec -it vault-0 /bin/sh
+
+    CMD:
+    kubectl exec -it vault-0 /bin/sh
 
 List the Vaults k8s auth roles at the auth/kubernetes/role endpoint, to determine if the test-app role exist.
-  CMD: vault list auth/kubernetes/role
+  CMD: 
+  vault list auth/kubernetes/role
 
 The output from the list command above, doesn't include the test-app role.
    - The test-app role will need to be created
@@ -198,12 +207,14 @@ The output from the list command above, doesn't include the test-app role.
 The next step create the kubernetes auth test-app role.
 
 **Step 9.**
-  CMD: vault write auth/kubernetes/role/test-app bound_service_account_names=vault-auth bound_service_account_namespaces=default token_policies=test-app
+  CMD: 
+  vault write auth/kubernetes/role/test-app bound_service_account_names=vault-auth bound_service_account_namespaces=default token_policies=test-app
 
 The next step is to check the logs from the initContainer vault-agent-init
 
 **Step 10.**
-  CMD: kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
+  CMD: 
+  kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
 
 **Example of new ERROR in application pod initContainer vault-agent-init:**
   2023-07-21T00:33:45.274Z [WARN] (view) vault.read(test/secret/super_secret): vault.read(test/secret/super_secret): Error making API request.
@@ -223,18 +234,24 @@ The next step is to enable the kv secrets engine and create a secret at path tes
 
 **Step 11.**
 Enable kv secrets engine at path test
-CMD: vault secrets enable -path=test kv
+ 
+ CMD: 
+ vault secrets enable -path=test kv
 
 The next step is to create a secret at path
 
 **Step 12.**
-CMD: vault kv put test/secret/super_secret password=p@ssword
+ 
+ CMD: 
+ vault kv put test/secret/super_secret password=p@ssword
 
 Next step make sure you're able to retreive the secret.
 
 **Step 13.**
 Retrieve kv secret super_secret
-CMD: vault kv get test/secret/super_secret
+
+CMD: 
+vault kv get test/secret/super_secret
 
 Next step is to create a vault policy to allow read access to the kv secret.
 
@@ -257,14 +274,16 @@ EOF
 **Step 15.**
 Read vault policy test-app.
 
-CMD: vault policy read test-app
+CMD: 
+vault policy read test-app
 
 Next step check the status of the pods 
 
 **Step 16.**
 At this point the pods initContainer should've successfully retreived a token from vault and the main app container nginx and sideCar container vault-agent should be running now.
 
-CMD: kubectl get po -l app=nginx
+CMD: 
+kubectl get po -l app=nginx
 
 NAME                               READY   STATUS    RESTARTS   AGE
 nginx-deployment-68f94459b-6fx4z   2/2     Running   0          114m
@@ -279,10 +298,13 @@ E0720 22:40:40.320514       1 dispatcher.go:185] failed calling webhook "vault.h
 If you encounter any x509 errors you can either specify the SSL details or skip-tls.
   - To skip tls add an annotation to the deployment object nginx-deployment.
     - You can either update the YAML file with the new annotation and re-POST it to the API or use the kubectl patch command. 
-      CMD: kubectl apply -f nginx-deployment.yaml
+      CMD:
+      kubectl apply -f nginx-deployment.yaml
 
   Use k8s verb PATCH instead of updating YAML manually:
-  CMD: kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true"}}}} }'
+  
+  CMD: 
+  kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true"}}}} }'
 
 
 Multiple errors can generate 403 errors, its up to you to find out where the errors are coming from. Sometimes you'll need to check the logs of the kube-system api pod for more insight.
