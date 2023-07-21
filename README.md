@@ -194,6 +194,19 @@ Check the logs for the vault-agent-init container to understand why the other co
 **Example of log errors in the application pods initContainer vault-agent-init.**
 
 ```
+2023-07-21T17:00:03.034Z [INFO]  agent.auth.handler: authenticating
+2023-07-21T17:00:03.037Z [ERROR] agent.auth.handler: error authenticating:
+  error=
+  | Error making API request.
+  |
+  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
+  | Code: 403. Errors:
+  |
+  | * permission denied
+   backoff=3m41.79s
+```
+
+```
 2023-07-20T23:56:59.952Z [ERROR] auth.handler: error authenticating:
   error=
   | Error making API request.
@@ -214,7 +227,7 @@ The output from the kubectl logs command tells us alot about the vault-agent-inj
   - The error shows the fqdn of the vault server http://vault.default.svc:8200 or vault-agent-injector.svc service fqdn.
     - This value can be updated by editing the env AGENT_INJECT_VAULT_ADDR in the vault-agent-injector pod spec.
   ```
-The next step is to check the kubernetes auth role.
+The next step is to check the kubernetes config and auth role.
 
 **Step 8.**
   - exec into vault pod
@@ -223,6 +236,9 @@ The next step is to check the kubernetes auth role.
     kubectl exec -it vault-0 /bin/sh
 
 List the Vaults k8s auth roles at the auth/kubernetes/role endpoint, to determine if the test-app role exist.
+
+  CMD:
+  vault read auth/kuberntes/config
   
   CMD: 
   vault list auth/kubernetes/role
