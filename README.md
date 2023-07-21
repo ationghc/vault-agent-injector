@@ -1,4 +1,4 @@
-This K8s session assumes that vault and kubernetes auth is already enabled.
+This K8s session assumes that vault is running and kubernetes auth is already enabled.
 
 # vault-agent-injector
 The Vault Agent Injector alters pods to include 2 Vault containers, that'll retreive secrets from vault and store the secrets in a shared volume, allowing the main application container access to retreive the vault secret. 
