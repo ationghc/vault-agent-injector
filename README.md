@@ -14,6 +14,7 @@ We're going to create the application pod in away that it is expected to fail. T
 - Check Container and pod status
 - Investigate container logs
 - Annotate a running deployment
+- mutatingwebhookconfiguration - step pending
 - Mutate pod to include initContainer and sideCar container
 - kubectl cli: patch,get,logs and describe
 
