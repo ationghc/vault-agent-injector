@@ -1,3 +1,9 @@
+
+# vault-agent-injector
+The Vault Agent Injector alters pods to include 2 Vault containers, that'll retreive secrets from vault and store the secrets in a shared volume, allowing the main application container access to retreive the vault secret. 
+
+We're going to create the application pod in away that it is expected to fail. Then we'll address the issues as they arise.  
+
 **Kubernetes Objectives:**
 - Distinguish between kubernetes pod container types
   - Main App Container
@@ -17,10 +23,6 @@
 - Create a secret in kv secrets engine path
 - Create a kubernetes auth method role
 
-# vault-agent-injector
-The Vault Agent Injector alters pods to include 2 Vault containers, that'll retreive secrets from vault and store the secrets in a shared volume, allowing the main application container access to retreive the vault secret. 
-
-We're going to create the application pod in away that it is expected to fail. Then we'll address the issues as they arise.  
 
 **Step 1.**
 Clone the nginx-deployment git repo 
