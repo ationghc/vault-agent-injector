@@ -18,7 +18,7 @@ We're going to create the application pod in away that it is expected to fail. T
 
 **Vault Objectives:**
 - Deploy an application that is able to retreive secrets from vault, using vault-k8s vault-injector
-- Create a vault policy & read policy
+- Create a vault policy 
 - Enable kv secrets engine
 - Create a secret in kv secrets engine path
 - Create a kubernetes auth method role
