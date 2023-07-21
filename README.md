@@ -191,7 +191,7 @@ Check the logs for the vault-agent-init container to understand why the other co
   CMD: 
   kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
 
-**Example of log errors in the application pods initContainer vault-agent-init.**
+** 2 Examples of possible log errors in the application pods initContainer vault-agent-init.**
 
 ```
 2023-07-21T17:00:03.034Z [INFO]  agent.auth.handler: authenticating
