@@ -42,7 +42,8 @@ Check the status of the nginx-deployment:
   CMD: 
   kubectl get deploy nginx-deployment
 
-**Output of k get deploy**
+**Output of kubectl get deploy**
+
   NAME               READY   UP-TO-DATE   AVAILABLE   AGE
   nginx-deployment   0/3     3            0           70m
 
@@ -63,8 +64,8 @@ Check output of kubectl describe deploy cmd for the fields listed below.
 
 The output below from the kubectl describe deploy cmd didn't state why the pods weren't running. But, it did provide the state of the deployment.
 
-**Output of k describe deployment**
-Name:                   nginx-deployment
+**Output of kubectl describe deployment**
+```Name:                   nginx-deployment
 Namespace:              default
 Replicas:               3 desired | 3 updated | 3 total | 0 available | 3 unavailable
 Pod Template:
@@ -92,7 +93,7 @@ List only the nginx application pods. Use the -l argument to specify only the po
   kubectl get po -l app=nginx 
 
                                         PODS Are Stuck In An Initialization Status
-NAME                               READY   STATUS     RESTARTS   AGE
+```NAME                               READY   STATUS     RESTARTS   AGE
 nginx-deployment-585f4cdbf-529qg   0/2     Init:0/1   0          3m34s
 nginx-deployment-585f4cdbf-rrxdk   0/2     Init:0/1   0          3m34s
 nginx-deployment-585f4cdbf-svwhg   0/2     Init:0/1   0          3m34s
@@ -119,11 +120,13 @@ Execute kubectl describe on an nginx application pod
     - In fact, usually the other containers cannot start unless the init container completes succesfully first.
     
 **Main App Container:** 
-  - nginx: Main app container consumes the secret that the vault-agent-init initContainer stored to a mount point in the pod spec.
+  - nginx:
+    Main app container consumes the secret that the vault-agent-init initContainer stored to a mount point in the pod spec.
 
 **SideCar Container:** 
-  - vault-agent: container runs through out the lifecycle of the pod and continously checks for updated secrets.
-    - whereas the init container terminates after it executes and retreives the initial secret from vault successfully.  
+  - vault-agent:
+    container runs through out the lifecycle of the pod and continously checks for updated secrets.
+    	- whereas the init container terminates after it executes and retreives the initial secret from vault successfully.  
 
   CMD: 
   kubectl describe po nginx-deployment-585f4cdbf-529qg
@@ -170,7 +173,7 @@ Check the logs for the vault-agent-init container to understand why the other co
 
 **Example of log errors in the application pods initContainer vault-agent-init.**
 
-2023-07-20T23:56:59.952Z [ERROR] auth.handler: error authenticating:
+```2023-07-20T23:56:59.952Z [ERROR] auth.handler: error authenticating:
   error=
   | Error making API request.
   | 
