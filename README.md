@@ -254,13 +254,24 @@ If you encounter any x509 errors you can either specify the SSL details or skip-
   CMD: kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true"}}}} }'
 
 
-Multiple errors can generate 403 errors, its up to you to find out where the errors are coming from. Sometimes you'll need to check the logs of the kube-system api pod.
+Multiple errors can generate 403 errors, its up to you to find out where the errors are coming from. Sometimes you'll need to check the logs of the kube-system api pod for more insight.
 
 - kubectl logs kube-apiserver-vault-test -n kube-system | grep injec
 
    E0720 23:17:06.739490       1 dispatcher.go:185] failed calling webhook "vault.hashicorp.com": failed to call webhook: Post "https://vault-agent-injector-svc.default.svc:443/mutate?timeout=30s": x509: certificate has expired or is not yet valid: current time 2023-07-20T23:17:06Z is after 2023-07-20T18:49:51Z
 
-Quick Summary on vault-agent-injector requirements to inject initContainer and sideCar container into application pod via annotations.
+**Quick Summary on vault-agent-injector requirements to inject initContainer and sideCar container into an application pod via annotations.**
 - Ensure the vault auth kubernetes method works first
 - Ensure that the kubernetes host is reachable from the application pod
 - Ensure that the vault-agent-injector service address is reachable from the application pod on port 8080
+- Ensure that the vault-agent-injector endpoints are reachable on port 8080
+- Ensure the kubernetes role has the correct serviceAccount and namespace
+- Ensure application pod has the serviceAccount and is in the namespace defined in the kubernetes auth role
+- Ensure there are no issues accessing the tokenreview API
+- Inspect application pod mounted token
+- If a customer has aggregated logging like splunk, have them check their logs for
+ 	- kubernetes auth accessor id
+   	- ServiceAccount
+    	- The strings: authorization, x509, vault.hashicorp.com, "permission denied", mutate, injector
+
+  
