@@ -75,11 +75,9 @@ The output below from the kubectl describe deploy cmd didn't state why the pods 
 ```
 Name:                   nginx-deployment
 Namespace:              default
-Replicas:               3 desired | 3 updated | 3 total | 0 available | 3 unavailable
+Replicas:               1 desired | 1 updated | 1 total | 1 available | 0 unavailable
 Pod Template:
-  Annotations:      vault.hashicorp.com/agent-inject: true
-                    vault.hashicorp.com/agent-inject-secret-password.txt: test/secret/super_secret
-                    vault.hashicorp.com/role: test-app
+  Annotations:      
   Service Account:  vault-auth
   Containers:
    nginx:
@@ -100,15 +98,17 @@ List only the nginx application pods. Use the -l argument to specify only the po
   CMD: 
   kubectl get po -l app=nginx 
 
-        **PODS Are Stuck In An Initialization Status**
+        **POD STATUS is running and the main app container has a STATUS of READY**
 ```
-NAME                               READY   STATUS     RESTARTS   AGE
-nginx-deployment-585f4cdbf-529qg   0/2     Init:0/1   0          3m34s
-nginx-deployment-585f4cdbf-rrxdk   0/2     Init:0/1   0          3m34s
-nginx-deployment-585f4cdbf-svwhg   0/2     Init:0/1   0          3m34s
+vault-agent-injector % kubectl get po -l app=nginx           
+NAME                                READY   STATUS    RESTARTS   AGE
+nginx-deployment-7b9477ddd8-vg7kc   1/1     Running   0          3s
+
+
+
 ```
   - Pod status
-    - Init:0/1 means zero out of one initContainers have completed so far.
+    - Init:0/1 means none of the initContainers have completed so far.
     - PodInitializing or Running means the Pod has already finished executing the Init Containers.
 
 Next step determine why the pods are stuck in an initializing state.
