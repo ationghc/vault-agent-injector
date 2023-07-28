@@ -3,7 +3,7 @@ This K8s session assumes that vault is running and kubernetes auth is already en
 # vault-agent-injector
 The Vault Agent Injector alters pods to include 2 Vault containers, that'll retreive secrets from vault and store the secrets in a shared volume, allowing the main application container access to retreive the vault secret. 
 
-We're going to create the application pod in away that it is expected to fail. Then we'll address the issues as they arise.  
+We're going to create the application pod in away that it is expected to fail. Then we'll address issues as they arise.  
 
 **Kubernetes Objectives:**
 - Distinguish between kubernetes pod container types
@@ -57,7 +57,7 @@ The annotation below triggers vault agent injector to inject containers into pod
 
 The next step is to check if the deployment has the correct annotations set. 
 **Step 4.**
-Check deployment for annotations.
+Check deployment for annotations, you can use any of the commands listed below to view a resources annotation.
 
 CMD:
 kubectl annotate --list=true deploy nginx-deployment
