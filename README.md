@@ -9,7 +9,7 @@ We're going to create the application pod in away that it is expected to fail. T
 - Distinguish between kubernetes pod container types
   - Main App Container
   - initContainer
-  - sideCar Container
+  - ContainerSidecar
 - Create a kubernetes deployment
 - Check Container and pod status
 - Investigate container logs
@@ -33,7 +33,7 @@ Clone the nginx-deployment git repo
   git clone https://github.com/ationghc/vault-agent-injector.git
 
 **Step 2.**
-Create an nginx-deployment with 3 replicas using the nginx-deployment.yaml supplied in this repo.
+Create an nginx-deployment with 1 replica using the nginx-deployment.yaml supplied in this repo.
  
  CMD: 
  cd vault-agent-injector; kubectl apply -f nginx-deployment.yaml
@@ -48,10 +48,40 @@ Check the status of the nginx-deployment:
 
   ```
   NAME               READY   UP-TO-DATE   AVAILABLE   AGE
-  nginx-deployment   0/3     3            0           70m
+  nginx-deployment   1/1     1            1          70m
  ```
+The output above shows the nginx-deployment pod is running. But without the initContainer vault-agent-init and sideCar container vault-agent. 
 
-Output above shows that none of the nginx pods are running. Next step execute kubectl describe deploy cmd on the nginx-deployment object, to understand state of deployment. 
+The annotation below triggers vault agent injector to inject containers into pods.
+   - vault.hashicorp.com/agent-inject: 'true'
+
+The next step is to check if the deployment has the correct annotations set. 
+**Step 4.**
+Check deployment for annotations.
+
+CMD:
+kubectl annotate --list=true deploy nginx-deployment
+kubectl get deployment nginx-deployment -o json | jq -r .metadata.annotations
+kubectl describe deployment nginx-deployment and check for annotations
+kubectl get po nginx-deployment-7b9477ddd8-v7z5x -o yaml
+
+
+```
+{
+  "deployment.kubernetes.io/revision": "1",
+  "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"labels\":{\"app\":\"nginx\"},\"name\":\"nginx-deployment\",\"namespace\":\"default\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"app\":\"nginx\"}},\"template\":{\"metadata\":{\"annotations\":null,\"labels\":{\"app\":\"nginx\"}},\"spec\":{\"containers\":[{\"image\":\"nginx:1.14.2\",\"name\":\"nginx\",\"ports\":[{\"containerPort\":80}]}],\"serviceAccountName\":\"vault-auth\"}}}}\n"
+}
+```
+The output doesn't list annotation vault.hashicorp.com/agent-inject:true. As a result the pod is being deploymed with only the application container.
+
+The next step is to update the deployment nginx-deployment with the proper annotations
+**Step 5.**
+kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true","vault.hashicorp.com/agent-inject":"true","vault.hashicorp.com/agent-inject-secret-password.txt":"test/secret/super_secret"}}}} }' 
+
+kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify-"}}}} }'
+
+
+Next step execute kubectl describe deploy cmd on the nginx-deployment object, to understand state of deployment. 
 
 **Step 4.**
 Check output of kubectl describe deploy cmd for the fields listed below.
