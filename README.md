@@ -85,10 +85,12 @@ The next step is to update the deployment nginx-deployment with the proper annot
 You can update the deployment object nginx-deployment with the patch command, but it is not the recommended approach.
 - The kubectl patch command takes a partial Kubernetes resource spec as input and merges it into the object. It is essentially an update command for kubernetes resources.
 
-Patch CMD for single annotation
+Patch CMD for single annotation:
+
 kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/agent-inject":"true"}}}} }'
 
-Patch CMD for multiple annotations
+Patch CMD for multiple annotations:
+
 kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true","vault.hashicorp.com/agent-inject":"true","vault.hashicorp.com/agent-inject-secret-password.txt":"test/secret/super_secret"}}}} }' 
 
 **Recommended Approach:**
@@ -139,9 +141,13 @@ The next step is to check the logs:
 **Step 8.**
 If the containers are injected but not running, then you'll need to check the logs
 - vault-agent-injector logs
-  CMD: kubectl logs vault-agent-injector-8496df644f-kfnbb -f
+  CMD:
+  kubectl logs vault-agent-injector-8496df644f-kfnbb -f
+
 - application pod initContainer logs
-  CMD: kubectl logs nginx-deployment-585f4cdbf-6p4pw -c vault-agent-init -f
+  CMD:
+  kubectl logs nginx-deployment-585f4cdbf-6p4pw -c vault-agent-init -f
+
 - kubernetes API logs
   CMD: kubectl logs kube-apiserver-vault-test -n kube-system | grep inject
 
