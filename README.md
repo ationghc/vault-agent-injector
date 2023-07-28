@@ -94,6 +94,7 @@ Patch CMD for multiple annotations:
 kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true","vault.hashicorp.com/agent-inject":"true","vault.hashicorp.com/agent-inject-secret-password.txt":"test/secret/super_secret"}}}} }' 
 
 **Recommended Approach:**
+
 kubectl replace command is the recommended approach. You can edit your current YAML in place or create a new YAML with your latest changes and then post it to the API with the recreate subcommand. Kubernetes will recreate the resource with the new values you defined in the YAML. 
 
 The next step is to run the kubectl replace command, which is listed below to update the nginx-deployment with the vault-agent-injector annotations.
