@@ -62,8 +62,11 @@ Check deployment for annotations, you can use any one of the commands listed bel
 
 CMD:
 kubectl annotate --list=true pod nginx-deployment-585f4cdbf-lqklw
+
 kubectl get deployment nginx-deployment -o json | jq -r .spec.template.metadata.annotations
+
 kubectl describe deployment nginx-deployment and check for annotations
+
 kubectl get po nginx-deployment-7b9477ddd8-v7z5x -o yaml
 
 
@@ -73,13 +76,14 @@ kubectl get po nginx-deployment-7b9477ddd8-v7z5x -o yaml
   "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"labels\":{\"app\":\"nginx\"},\"name\":\"nginx-deployment\",\"namespace\":\"default\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"app\":\"nginx\"}},\"template\":{\"metadata\":{\"annotations\":null,\"labels\":{\"app\":\"nginx\"}},\"spec\":{\"containers\":[{\"image\":\"nginx:1.14.2\",\"name\":\"nginx\",\"ports\":[{\"containerPort\":80}]}],\"serviceAccountName\":\"vault-auth\"}}}}\n"
 }
 ```
-The output above is missing annotations for vault.hashicorp.com/agent-inject:true. As a result the pod is being deploymed with only the application container.
+The output above is missing annotations for vault.hashicorp.com/agent-inject:true. 
+As a result the pod is being deploymed with only the application container nginx.
 
 The next step is to update the deployment nginx-deployment with the proper annotations
 **Step 5.**
 
-You can update the deployment resource nginx-deployment with the patch command, but it is note the recommended approach.
-- The kubectl patch command takes a partial Kubernetes spec as input and merges it into the object. It essentially an update command for kubernetes resources.
+You can update the deployment object nginx-deployment with the patch command, but it is not the recommended approach.
+- The kubectl patch command takes a partial Kubernetes resource spec as input and merges it into the object. It is essentially an update command for kubernetes resources.
 
 Patch CMD for single annotation
 kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/agent-inject":"true"}}}} }'
@@ -87,14 +91,56 @@ kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{
 Patch CMD for multiple annotations
 kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true","vault.hashicorp.com/agent-inject":"true","vault.hashicorp.com/agent-inject-secret-password.txt":"test/secret/super_secret"}}}} }' 
 
+**Recommended Approach:**
 kubectl replace command is the recommended approach. You can edit your current YAML in place or create a new YAML with your latest changes and then post it to the API with the recreate subcommand. Kubernetes will recreate the resource with the new values you defined in the YAML. 
 
-The next step is to run the command listed below to update the nginx-deployment with the vault-agent-injector annotations.
+The next step is to run the kubectl replace command, which is listed below to update the nginx-deployment with the vault-agent-injector annotations.
 
 CMD:
 kubectl  replace -f nginx-deployment-annotated.yaml
 
-Next step execute kubectl describe deploy cmd on the nginx-deployment object, to understand state of deployment. 
+Next step is to confirm the annotations were applied to the deployment object.
+**Step 6.**
+
+CMD:
+kubectl get deployment nginx-deployment -o json | jq -r .spec.template.metadata.annotations
+
+The output from the command above shows the annotations were updated/patched successfully.
+```
+{
+  "vault.hashicorp.com/agent-inject": "true",
+  "vault.hashicorp.com/agent-inject-secret-password.txt": "test/secret/super_secret",
+  "vault.hashicorp.com/role": "test-app"
+}
+```
+
+Since the annotations were applied then the containers should be injected. 
+
+The next step is to execute kubectl get pods -l app=nginx to confirm if the containers were injected.
+**Step 7.**
+
+CMD: 
+kubectl get pods -l app=nginx
+
+The output from the command above shows that the vault-agent-injector webhook server failed to inject the vault agent containers into the application pod.
+Because the ready column shows `1/1` container ready, when there should be 2/2 containers ready. Which is nginx and vault-agent containers.
+```
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-deployment-585f4cdbf-6glvx   1/1     Running   0          11m
+nginx-deployment-585f4cdbf-vsj24   1/1     Running   0          11m
+nginx-deployment-585f4cdbf-zzszt   1/1     Running   0          11m
+```
+
+Annotations are set and the vault-agent-injector still isn't injecting. Which means its time to debug.
+
+The next step is to determine why the injection is failing.
+**Step 7.**
+
+
+
+
+
+The next step is to execute kubectl describe deploy cmd on the nginx-deployment object, to understand state of deployment. 
 
 **Step 4.**
 Check output of kubectl describe deploy cmd for the fields listed below.
@@ -395,7 +441,7 @@ kubectl logs kube-apiserver-vault-test -n kube-system | grep injec
 ```
    E0720 23:17:06.739490       1 dispatcher.go:185] failed calling webhook "vault.hashicorp.com": failed to call webhook: Post "https://vault-agent-injector-svc.default.svc:443/mutate?timeout=30s": x509: certificate has expired or is not yet valid: current time 2023-07-20T23:17:06Z is after 2023-07-20T18:49:51Z
 ```
-If you encounter any x509 errors you can either specify the SSL details or skip-tls.
+**If you encounter any x509 errors you can either specify the SSL details or skip-tls.**
  ```
   - To skip tls add an annotation to the deployment object nginx-deployment.
     - You have two options update the YAML file with the new annotation and re-POST it to the API or use the kubectl patch command. 
@@ -405,7 +451,7 @@ Update YAML Option:
 CMD:
 kubectl apply -f nginx-deployment.yaml
 ```
-Use k8s verb PATCH instead of updating YAML manually:
+**Use k8s verb PATCH instead of updating YAML manually:**
   ```
   CMD: 
   kubectl patch deployment nginx-deployment -p '{"spec": {"template":{"metadata":{"annotations":{"vault.hashicorp.com/tls-skip-verify":"true"}}}} }'
@@ -420,7 +466,7 @@ Use k8s verb PATCH instead of updating YAML manually:
 - Ensure the kubernetes role has the correct serviceAccount and namespace
 - Ensure application pod has the serviceAccount and is in the namespace defined in the kubernetes auth role
 - Ensure there are no issues accessing the tokenreview API
-- Inspect application pod mounted token
+- Inspect application pod mounted token, you can use a 3rd party site called jwt.io
 - If a customer has aggregated logging like splunk, have them check their logs for
  	- kubernetes auth accessor id
    	- ServiceAccount
@@ -428,5 +474,24 @@ Use k8s verb PATCH instead of updating YAML manually:
 
 
 Misc:
-kubectl get deploy nginx-deployment -o json | jq '.spec.template.spec.containers[].name'
+**Command to select names of containers in pods**
+
+CMD: 
+kubectl get po nginx-deployment-585f4cdbf-fttp8 -o json | jq '.spec.containers[].name'
+kubectl get po nginx-deployment-585f4cdbf-fttp8 -o json | jq '.spec.initContainers[].name'
+
+
+**Logs aren't telling the full story:**
+Sometimes the vault-agent-injector and the kubernetes-api log_levels are set to INFO and as a result they do not provide adequate information.
+The next step would be to increase log verbosity on API server and vault-agent-injector. 
+
+**Change vault-agent-injector log_level:**
+ - Edit the deployment vault-agent-injector and change env $AGENT_INJECT_LOG_LEVEL from INFO to DEBUG
+   - CMD kubectl edit deployment vault-agent-injector 
+
+**Change Kubernetes API log_level:**
+- Create SA clusterrolebinding for clusterrole edit-debug-flags-v
+- Create SA default a TOKEN CMD: kubectl create token default
+- Update log_level with curl CMD: curl -k -X PUT -d '4' https://127.0.0.1:50119/debug/flags/v --header "Authorization: Bearer $TOKEN"
+	- Your cluster port is probably different, check with CMD: kubect cluster-info
 
