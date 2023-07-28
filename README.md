@@ -116,29 +116,177 @@ The output from the command above shows the annotations were updated/patched suc
 
 Since the annotations were applied then the containers should be injected. 
 
-The next step is to execute kubectl get pods -l app=nginx to confirm if the containers were injected.
+The next step is to execute kubectl get pods -l app=nginx to confirm if the containers were injected into the application pod.
 **Step 7.**
 
 CMD: 
 kubectl get pods -l app=nginx
 
-The output from the command above shows that the vault-agent-injector webhook server failed to inject the vault agent containers into the application pod.
-Because the ready column shows `1/1` container ready, when there should be 2/2 containers ready. Which is nginx and vault-agent containers.
+The output from the command above shows that the vault-agent-injector webhook server injected the vault agent containers into the application pod.
+Because the ready column shows `0/2` container ready. 
+```
+NAME                               READY   STATUS     RESTARTS   AGE
+nginx-deployment-585f4cdbf-6p4pw   0/2     Init:0/1   0          4s
+```
+```
+ - Pod status
+    - Init:0/1 means none of the initContainers have completed so far.
+    - PodInitializing or Running means the Pod has already finished executing the Init Containers.
+```
+
+Next step determine why the pods are stuck in an initializing state.
+The next step is to check the logs:
+**Step 8.**
+If the containers are injected but not running, then you'll need to check the logs
+- vault-agent-injector logs
+  CMD: kubectl logs vault-agent-injector-8496df644f-kfnbb -f
+- application pod initContainer logs
+  CMD: kubectl logs nginx-deployment-585f4cdbf-6p4pw -c vault-agent-init -f
+- kubernetes API logs
+  CMD: kubectl logs kube-apiserver-vault-test -n kube-system | grep inject
+
+The vault-agent-injector is reporting a 400 error invalid role name "test-app"
+```
+2023-07-28T18:28:21.751Z [ERROR] auth.handler: error authenticating:
+  error=
+  | Error making API request.
+  | 
+  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
+  | Code: 400. Errors:
+  | 
+  | * invalid role name "test-app"
+   backoff=4m25.27s
+```
+The next step is to check if the kubernetes auth role test-app is configured
+**Step 9.**
+
+**The error above means that the role defined in the deployment annotation is incorrect or doesn't exist.**
+
+The output from the kubectl logs command tells us alot about the vault-agent-injector and the reason for the failure.
+ ```
+  - The error shows the vault agent is attempting to login @ a VAULT URL http://vault.default.svc:8200/v1/auth/kubernetes/login
+  - The error shows a kubernetes auth role test-app is invalid.
+  - The error shows the kubernetes authentication path is set to auth/kubernetes.
+  - The error shows the fqdn of the vault server http://vault.default.svc:8200 or vault-agent-injector.svc service fqdn.
+    - This value can be updated by editing the env AGENT_INJECT_VAULT_ADDR in the vault-agent-injector pod spec.
+  ```
+The next step is to check the kubernetes config and auth role.
+
+**Step 10.**
+  - exec into vault pod
+
+    CMD:
+    kubectl exec -it vault-0 /bin/sh
+
+List the Vaults k8s auth roles at the auth/kubernetes/role endpoint, to determine if the test-app role exist.
+
+  CMD:
+  vault read auth/kuberntes/config
+  
+  CMD: 
+  vault list auth/kubernetes/role
+
+The output from the list command above, doesn't include the test-app role.
+  ```
+   - The test-app role will need to be created
+  ```
+The next step create the kubernetes auth test-app role.
+
+**Step 11.**
+
+  CMD: 
+  vault write auth/kubernetes/role/test-app bound_service_account_names=vault-auth bound_service_account_namespaces=default token_policies=test-app
+```
+The next step is to check the logs from the initContainer vault-agent-init
+```
+
+**Step 12.**
+
+  CMD: 
+  kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
+
+**Example of new ERROR in application pod initContainer vault-agent-init:**
+
+```
+2023-07-21T00:33:45.274Z [WARN] (view) vault.read(test/secret/super_secret): vault.read(test/secret/super_secret): Error making API request.
+
+URL: GET http://vault.default.svc:8200/v1/test/secret/super_secret
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied
+```
+
+The new error initially seems to be related to the token not having a policy that allows a read action on the kv secret path test/secret/super_secret. 
+```
+  - But we're encountering this error
+    - Because we didn't enable the secret engine or create a secret at that path.
+```
+
+The next step is to enable the kv secrets engine and create a secret at path test/secret/super_secret 
+
+**Step 13.**
+Enable kv secrets engine at path test
+ 
+ CMD: 
+ vault secrets enable -path=test kv
+ 
+```
+The next step is to create a secret at path
+```
+**Step 14.**
+ 
+ CMD: 
+ vault kv put test/secret/super_secret password=p@ssword
+ 
+```
+Next step make sure you're able to retreive the secret.
+```
+**Step 15.**
+Retrieve kv secret super_secret
+
+CMD: 
+vault kv get test/secret/super_secret
+
+```
+Next step is to create a vault policy to allow read access to the kv secret.
+```
+**Step 16.**
+Create a vault policy named test-app with read permissions on kv secrets path "test/secret/super_secret"
+```
+CMD:
+
+vault policy write test-app - <<EOF
+
+path "test/secret/super_secret" {
+
+capabilities = ["read"]
+
+}
+
+EOF
+```
+
+**Step 17.**
+Read vault policy test-app.
+
+CMD: 
+vault policy read test-app
+```
+Next step check the status of the pods 
+```
+
+**Step 18.**
+At this point the pods initContainer should've successfully retreived a token from vault and the main app container nginx and sideCar container vault-agent should be running now.
+
+CMD: 
+kubectl get po -l app=nginx
 ```
 NAME                               READY   STATUS    RESTARTS   AGE
-nginx-deployment-585f4cdbf-6glvx   1/1     Running   0          11m
-nginx-deployment-585f4cdbf-vsj24   1/1     Running   0          11m
-nginx-deployment-585f4cdbf-zzszt   1/1     Running   0          11m
+nginx-deployment-68f94459b-6fx4z   2/2     Running   0          114m
 ```
 
-Annotations are set and the vault-agent-injector still isn't injecting. Which means its time to debug.
-
-The next step is to determine why the injection is failing.
-**Step 7.**
-
-
-
-
+**IGNORE INFORMATION BELOW:**
 
 The next step is to execute kubectl describe deploy cmd on the nginx-deployment object, to understand state of deployment. 
 
@@ -307,131 +455,7 @@ Check the logs for the vault-agent-init container to understand why the other co
   | * invalid role name "test-app"
    backoff=4m9.83s
 ```
-**The error above means that the role defined in the deployment annotation is incorrect or doesn't exist.**
 
-The output from the kubectl logs command tells us alot about the vault-agent-injector and the reason for the failure.
- ```
-  - The error shows the vault agent is attempting to login @ a VAULT URL http://vault.default.svc:8200/v1/auth/kubernetes/login
-  - The error shows a kubernetes auth role test-app is invalid.
-  - The error shows the kubernetes authentication path is set to auth/kubernetes.
-  - The error shows the fqdn of the vault server http://vault.default.svc:8200 or vault-agent-injector.svc service fqdn.
-    - This value can be updated by editing the env AGENT_INJECT_VAULT_ADDR in the vault-agent-injector pod spec.
-  ```
-The next step is to check the kubernetes config and auth role.
-
-**Step 8.**
-  - exec into vault pod
-
-    CMD:
-    kubectl exec -it vault-0 /bin/sh
-
-List the Vaults k8s auth roles at the auth/kubernetes/role endpoint, to determine if the test-app role exist.
-
-  CMD:
-  vault read auth/kuberntes/config
-  
-  CMD: 
-  vault list auth/kubernetes/role
-
-The output from the list command above, doesn't include the test-app role.
-  ```
-   - The test-app role will need to be created
-  ```
-The next step create the kubernetes auth test-app role.
-
-**Step 9.**
-
-  CMD: 
-  vault write auth/kubernetes/role/test-app bound_service_account_names=vault-auth bound_service_account_namespaces=default token_policies=test-app
-```
-The next step is to check the logs from the initContainer vault-agent-init
-```
-
-**Step 10.**
-
-  CMD: 
-  kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
-
-**Example of new ERROR in application pod initContainer vault-agent-init:**
-
-```
-2023-07-21T00:33:45.274Z [WARN] (view) vault.read(test/secret/super_secret): vault.read(test/secret/super_secret): Error making API request.
-
-URL: GET http://vault.default.svc:8200/v1/test/secret/super_secret
-Code: 403. Errors:
-
-* 1 error occurred:
-	* permission denied
-```
-
-The new error initially seems to be related to the token not having a policy that allows a read action on the kv secret path test/secret/super_secret. 
-```
-  - But we're encountering this error
-    - Because we didn't enable the secret engine or create a secret at that path.
-```
-
-The next step is to enable the kv secrets engine and create a secret at path test/secret/super_secret 
-
-**Step 11.**
-Enable kv secrets engine at path test
- 
- CMD: 
- vault secrets enable -path=test kv
- 
-```
-The next step is to create a secret at path
-```
-**Step 12.**
- 
- CMD: 
- vault kv put test/secret/super_secret password=p@ssword
- 
-```
-Next step make sure you're able to retreive the secret.
-```
-**Step 13.**
-Retrieve kv secret super_secret
-
-CMD: 
-vault kv get test/secret/super_secret
-
-```
-Next step is to create a vault policy to allow read access to the kv secret.
-```
-**Step 14.**
-Create a vault policy named test-app with read permissions on kv secrets path "test/secret/super_secret"
-```
-CMD:
-
-vault policy write test-app - <<EOF
-
-path "test/secret/super_secret" {
-
-capabilities = ["read"]
-
-}
-
-EOF
-```
-
-**Step 15.**
-Read vault policy test-app.
-
-CMD: 
-vault policy read test-app
-```
-Next step check the status of the pods 
-```
-
-**Step 16.**
-At this point the pods initContainer should've successfully retreived a token from vault and the main app container nginx and sideCar container vault-agent should be running now.
-
-CMD: 
-kubectl get po -l app=nginx
-```
-NAME                               READY   STATUS    RESTARTS   AGE
-nginx-deployment-68f94459b-6fx4z   2/2     Running   0          114m
-```
 
 **Misc Insight:**
 Multiple errors can generate 403 errors, its up to you to determine where the errors are coming from. Sometimes you'll need to check the logs of the kube-system api pod for more insight on webhook issues.
