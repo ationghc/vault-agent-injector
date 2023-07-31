@@ -1,4 +1,3 @@
-
 Today we'll inject a vault-agent initContainer and sideContainer into an nginx application pod. Using Hashicorps Vault Agent Injector webhook server.
 
 Session prerequisites:
