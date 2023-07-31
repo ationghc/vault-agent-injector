@@ -1,6 +1,6 @@
-In this session we'll learn about Kubernetes concepts, by debugging Hashicorps Vault Agent Injector Webhook server. 
+In this series we'll learn about Kubernetes concepts, by debugging Hashicorps Vault Agent Injector Webhook server. 
 
-Most of vault-agent-injector dependencies are missing. As a result we'll encounter typical errors that customers would face, when deploying vault-agent-injector in their K8s infrastructure. 
+Most of vault-agent-injector dependencies are missing. As a result we'll encounter typical errors that clients would face, when deploying vault-agent-injector in their K8s infrastructure. 
 
 **Session prerequisites:**
 *  K8s Minikube Cluster
@@ -172,7 +172,14 @@ kubectl logs kube-apiserver-vault-test -n kube-system | grep inject
   | * invalid role name "test-app"
    backoff=4m25.27s
 ```
+**The error above means that the role defined in the deployments annotation doesn't exist.**
 
+**The output from logs command provides key troubleshooting information:**
+ ```
+  - The error shows a Kubernetes auth role test-app is invalid
+  - The error shows the Kubernetes Auth config path is set to auth/kubernetes
+  - The error shows the fqdn of the vault server http://vault.default.svc:8200
+  ```
 **Misc Information:**
 
 **Other kubectl commands that list a deployments annotations**
