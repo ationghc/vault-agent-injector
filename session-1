@@ -80,6 +80,7 @@ As a result the pod is deployed with only the main application container nginx.
 
 The next step is to update the deployment nginx-deployment with the proper annotations
 **Step 5.**
+
 ````
 You can update the deployment nginx-deployment with the patch command for adhoc updates on the fly. 
  - The kubectl patch command takes a partial Kubernetes resource spec as input and merges it into the object. 
@@ -152,8 +153,9 @@ nginx-deployment-585f4cdbf-6p4pw   0/2     Init:0/1   0          4s
 The next step is to check logs:
  - Determine why initContainer did not complete job 
  - Determine why sideCar is not running.
-**Step 8.**
 
+**Step 8.**
+```
 CLI: Writes vault agent injector container logs to standard output
 kubectl logs vault-agent-injector-8496df644f-kfnbb -f
 
@@ -162,7 +164,7 @@ kubectl logs nginx-deployment-585f4cdbf-6p4pw -c vault-agent-init -f
 
 CLI:Writes Kubernetes API logs to standard output and search for the string inject
 kubectl logs kube-apiserver-vault-test -n kube-system | grep inject
-
+```
 
 The vault-agent-injector is reporting a 400 error invalid role name "test-app"
 ```
@@ -176,6 +178,9 @@ The vault-agent-injector is reporting a 400 error invalid role name "test-app"
   | * invalid role name "test-app"
    backoff=4m25.27s
 ```
+NEW Session Starting point
+
+
 The next step is to check if the kubernetes auth role test-app is configured
 **Step 9.**
 
