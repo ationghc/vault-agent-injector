@@ -30,60 +30,42 @@ Most of vault-agent-injector dependencies are missing. As a result we'll encount
 **Step 1.**
 
 **Clone the nginx-deployment repo** 
-  
-CLI: Clones GitHub repo to your local directory:
 ```
 git clone https://github.com/ationghc/vault-agent-injector.git
 ```
 **Step 2.**
 
 **Create an nginx-deployment with 1 replica using the nginx-deployment.yaml supplied in repo.**
-
-CLI: Reads YAML file and POST it to the K8s API to create a deployment object:
 ```
 kubectl apply -f nginx-deployment.yaml
 ```
 **Step 3.**
 
 **Check the status of the nginx-deployment:**
-
-CLI: Retrieves deployment state:
 ```
 kubectl get deploy nginx-deployment
 ```
-**Output shows nginx-deployment is running with 1 replica and appears to be healthy .**
-
+**Output shows nginx-deployment is running with 1 replica.**
 ```
   NAME               READY   UP-TO-DATE   AVAILABLE   AGE
   nginx-deployment   1/1     1            1          70m
 ```
 **Step 4.**
 
-**The next step is to confirm if the containers were injected into the nginx application pod.**
-
-CLI: List pods with label app=nginx
+**Confirm if the containers were injected into the nginx application pod.**
 ```
 kubectl get pods -l app=nginx
 ```
-**The injection didn't occur as expected, output shows the nginx-deployment pod has 1 of 1 container running.**
 ```
 NAME                                READY   STATUS    RESTARTS   AGE
 nginx-deployment-7b9477ddd8-n9tc5   1/1     Running   0          83m
 ```
-**Causes of a container injection to not occur in an application pod:**
-* Connectivity issue between vault-agent-injector and K8s API
-* Lack of vault-agent-injector annotations
-* Vault-agent-injector not running
-* Vault-agent-injector service is not reachable
-
 **The annotation below triggers vault agent injector to inject vault agent containers into a pod:**
    - vault.hashicorp.com/agent-inject: 'true' 
 
 **Step 5.**
 
-**The next step is to check K8s deployment for the required annotation.**.
-
-CLI: Queries API for POD or deployment annotations:
+**Check K8s deployment for the required annotation.**.
 ```
 kubectl get deployment nginx-deployment -o json | jq -r .spec.template.metadata.annotations
 ```
