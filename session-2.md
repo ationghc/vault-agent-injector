@@ -59,20 +59,13 @@ kubectl logs kube-apiserver-vault-test -n kube-system | grep inject
   | * invalid role name "test-app"
    backoff=4m25.27s
 ```
-**The output from logs command provides key troubleshooting information:**
- ```
-  - The error shows a Kubernetes auth role test-app is invalid
-  - The error shows the Kubernetes Auth config path is set to auth/kubernetes
-  - The error shows the fqdn of the vault server http://vault.default.svc:8200
-  ```
 **Step 10.**
 
 **Check K8s auth config and auth role:**
 ```
 kubectl exec vault-0 -- vault read auth/kubernetes/config
-vault list auth/kubernetes/role
+kubectl exec vault-0 -- vault list auth/kubernetes/role
 ```
-
 **Step 11.**
 
 **Create Vault Kubernetes Auth role test-app:**
@@ -214,4 +207,32 @@ kubectl exec -ti nginx-deployment-585f4cdbf-z795l -c nginx -- cat /vault/secrets
 * sideCar container vault-agent transitioned from pending to running
 * sideCar container is periodically renewing tokens
 * sideCar container is periodically checking for updated secrets
+```
+**Misc Info:**
+Log entry below indicates the application pod serviceAccount isn't scoped to a k8s auth role:
+```
+2023-08-01T21:49:09.160Z [ERROR] auth.handler: error authenticating:
+  error=
+  | Error making API request.
+  | 
+  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
+  | Code: 403. Errors:
+  | 
+  | * service account name not authorized
+```
+Log entry below indicates the application pod namespace isn't scoped to a k8s auth role:
+```
+2023-08-01T22:02:46.410Z [ERROR] auth.handler: error authenticating:
+  error=
+  | Error making API request.
+  | 
+  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
+  | Code: 403. Errors:
+  | 
+  | * namespace not authorized
+```
+Log entry below indicates the vault injector cert is expired
+```
+E0720 23:17:06.739490       1 dispatcher.go:185] failed calling webhook "vault.hashicorp.com": failed to call webhook: Post "https://vault-agent-injector-svc.default.svc:443/mutate?timeout=30s": 
+x509: certificate has expired or is not yet valid: current time 2023-07-20T23:17:06Z is after 2023-07-20T18:49:51Z
 ```
