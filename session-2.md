@@ -36,7 +36,7 @@ nginx-deployment-585f4cdbf-6p4pw   0/2     Init:0/1   0          4s
 
 **Step 9.**
 
-**The next step is to check container logs:**
+**Check container logs:**
 * Check logs of vault-agent-injector pod
 * Check logs of initContainer 
 * Check logs of K8s API
@@ -62,16 +62,90 @@ kubectl logs kube-apiserver-vault-test -n kube-system | grep inject
 **Step 10.**
 
 **Check K8s auth config and auth role:**
-```
-kubectl exec vault-0 -- vault read auth/kubernetes/config
-kubectl exec vault-0 -- vault list auth/kubernetes/role
-```
-**Step 11.**
 
-**Create Vault Kubernetes Auth role test-app:**
+`kubectl exec vault-0 -- vault read auth/kubernetes/config`
+`kubectl exec vault-0 -- vault list auth/kubernetes/role`
+
+Update deployment to use role `test-role` that exists in Vault.
+Go to `nginx-deployment-annotated.yaml` and update annotation for `vault.hashicorp.com/role` to use the `test-role` role in Vault
+Run `kubectl replace -f nginx-deployment-annotated.yaml` to redeploy ngnix deployment using updated role
+Check logs from the init container
+`kubectl logs -f nginx-deployment-74887f67b9-pml5r vault-agent-init`
+
 ```
-vault write auth/kubernetes/role/test-app bound_service_account_names=vault bound_service_account_namespaces=default token_policies=test-app
+2023-08-02T19:38:22.990Z [INFO]  agent.auth.handler: authenticating
+2023-08-02T19:38:22.993Z [ERROR] agent.auth.handler: error authenticating:
+  error=
+  | Error making API request.
+  |
+  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
+  | Code: 403. Errors:
+  |
+  | * namespace not authorized
+   backoff=44.61s
 ```
+Check k8s auth role config for authorized namespaces
+`kubectl exec vault-0 -- vault read auth/kubernetes/role/test-role`
+
+```
+bound_service_account_names         [test-sa]
+bound_service_account_namespaces    [vault]
+```
+
+Check namespace that application pod is running in 
+`kubectl get pods vault-0 -o json | jq .metadata.namespace`
+We see that the app pod is running in the default namespace but the bound_service_account_namespaces is set to vault
+Update bound_service_account_namespaces to default
+`kubectl exec vault-0 -- vault write auth/kubernetes/role/test-role bound_service_account_namespaces=default`
+
+Confirm that namespace has been updated 
+`kubectl exec vault-0 -- vault read auth/kubernetes/role/test-role`
+
+Check logs from init container
+
+`kubectl logs -f nginx-deployment-74887f67b9-pml5r vault-agent-init`
+
+2023-08-02T19:42:42.216Z [INFO]  agent.auth.handler: authenticating
+2023-08-02T19:42:42.234Z [ERROR] agent.auth.handler: error authenticating:
+  error=
+  | Error making API request.
+  |
+  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
+  | Code: 403. Errors:
+  |
+  | * service account name not authorized
+   backoff=4m37.45s
+
+Check app pod for service account
+`kubectl get pods vault-0 -o json | jq .spec.serviceAccount`
+
+We see that the app pod is using the vault service account
+Check k8s auth role config for service accounts
+`kubectl exec vault-0 -- vault read auth/kubernetes/role/test-role`
+
+```
+bound_service_account_names         [test-sa]
+bound_service_account_namespaces    [default]
+```
+
+We see that the bound_service_account_names for the role is set to test-sa but the app pod is using the vault service account
+
+Update bound_service_account_namespaces for the role
+`kubectl exec vault-0 -- vault write auth/kubernetes/role/test-role bound_service_account_names=vault`
+
+Confirm that service account has been updated 
+`kubectl exec vault-0 -- vault read auth/kubernetes/role/test-role`
+
+Check logs from init container
+
+`k logs -f nginx-deployment-74887f67b9-pml5r vault-agent-init`
+
+`2023-08-02T19:59:28.132Z [INFO]  agent.auth.handler: auth handler stopped` means the init container rendered the secret then terminated, this means the init container has completed its job.
+
+
+
+
+
 **Step 12.**
    
 **Check initContainer logs:**
@@ -87,14 +161,15 @@ Code: 403. Errors:
 ```
 **Step 13.**
 
-**Create a vault policy with read access for kv secret path test/secret:**
-```
-vault policy write test-app - <<EOF
-path "test/secret" {
-capabilities = ["read"]
-}
-EOF
-```
+Check policy in Vault
+`kubectl exec -ti vault-0 -- vault policy list`
+
+Write k8s auth config role to reference test-policy
+`kubectl exec vault-0 -- vault write auth/kubernetes/role/test-role policies=test-policy`
+
+Reschedule nginx pod 
+
+
 **Step 14.**
 
 **Check pod status:**
@@ -105,55 +180,7 @@ kubectl get po -l app=nginx
 NAME                               READY   STATUS    RESTARTS   AGE
 nginx-deployment-68f94459b-6fx4z   2/2     Running   0          114m
 ```
-**Step 15.**
 
-**Check initContainer status:**
-```
-kubectl get po nginx-deployment-585f4cdbf-wjt7g -o json | jq '.status.initContainerStatuses'
-
-"containerID": "docker://18c25eac4d55aa374419f18b8b38442ebcf617ad73fb4f9521fea414e539a4a2",
-    "image": "hashicorp/vault:1.12.0",
-    "imageID": "docker-pullable://hashicorp/vault@sha256:0723b1e86ef211de2f63aba10bc540956a771a6ae202f776c92bb7dfd32e6267",
-    "lastState": {},
-    "name": "vault-agent-init",
-    "ready": true,
-    "restartCount": 0,
-    "state": {
-      "terminated": {
-        "containerID": "docker://18c25eac4d55aa374419f18b8b38442ebcf617ad73fb4f9521fea414e539a4a2",
-        "exitCode": 0,
-        "finishedAt": "2023-08-01T16:46:57Z",
-        "reason": "Completed",
-        "startedAt": "2023-08-01T16:46:56Z"
-```
-**Check sideCar and main app container status:**
-```
-kubectl get po nginx-deployment-585f4cdbf-wjt7g -o json | jq '.status.containerStatuses'
-
-containerID": "docker://272f29527ed89aa26fbc74e9508490eddff0c9dbe096e3dcd83425747bbd0fd4",
-    "image": "nginx:1.14.2",
-    "imageID": "docker-pullable://nginx@sha256:f7988fb6c02e0ce69257d9bd9cf37ae20a60f1df7563c3a2a6abe24160306b8d",
-    "lastState": {},
-    "name": "nginx",
-    "ready": true,
-    "restartCount": 0,
-    "started": true,
-    "state": {
-      "running": {
-        "startedAt": "2023-08-01T16:46:57Z"
-   -------------------------------------------
-    "containerID": "docker://4b7dec247ad0ad190381805fcb857c3119b5dbd54fb7e3067254a616c9a721a5",
-    "image": "hashicorp/vault:1.12.0",
-    "imageID": "docker-pullable://hashicorp/vault@sha256:0723b1e86ef211de2f63aba10bc540956a771a6ae202f776c92bb7dfd32e6267",
-    "lastState": {},
-    "name": "vault-agent",
-    "ready": true,
-    "restartCount": 0,
-    "started": true,
-    "state": {
-      "running": {
-        "startedAt": "2023-08-01T16:46:57Z"
-```
 **Re-Check logs of initContainer:**
 ```
 kubectl logs nginx-deployment-585f4cdbf-4bxwk -c vault-agent-init
@@ -209,28 +236,7 @@ kubectl exec -ti nginx-deployment-585f4cdbf-z795l -c nginx -- cat /vault/secrets
 * sideCar container is periodically checking for updated secrets
 ```
 **Misc Info:**
-Log entry below indicates the application pod serviceAccount isn't scoped to a k8s auth role:
-```
-2023-08-01T21:49:09.160Z [ERROR] auth.handler: error authenticating:
-  error=
-  | Error making API request.
-  | 
-  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
-  | Code: 403. Errors:
-  | 
-  | * service account name not authorized
-```
-Log entry below indicates the application pod namespace isn't scoped to a k8s auth role:
-```
-2023-08-01T22:02:46.410Z [ERROR] auth.handler: error authenticating:
-  error=
-  | Error making API request.
-  | 
-  | URL: PUT http://vault.default.svc:8200/v1/auth/kubernetes/login
-  | Code: 403. Errors:
-  | 
-  | * namespace not authorized
-```
+
 Log entry below indicates the vault injector cert is expired
 ```
 E0720 23:17:06.739490       1 dispatcher.go:185] failed calling webhook "vault.hashicorp.com": failed to call webhook: Post "https://vault-agent-injector-svc.default.svc:443/mutate?timeout=30s": 
