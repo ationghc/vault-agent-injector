@@ -73,7 +73,7 @@ The vault-agent-injector is reporting a 400 error invalid role name "test-app"
 
 Check K8s auth config and auth role:
 
-`kubectl exec vault-0 -- vault read auth/kubernetes/config` (maybe we don't need this step since all we need to do is see what role exist in Vault)
+`kubectl exec vault-0 -- vault read auth/kubernetes/config`
 `kubectl exec vault-0 -- vault list auth/kubernetes/role`
 
 **Step 11**
