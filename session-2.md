@@ -4,23 +4,28 @@ This is session #2 of learning Kubernetes, while debugging vault-agent-injector.
 
 * A Vault pod
   * Initalized & unsealed
-  * KV secrets engine enabled with a policy that reference the path
-  * k8s auth method enabled with a role
+  * KV secrets engine enabled
+  * A Vault policy that references the KV secrets path 
+  * k8s auth method enabled
+  * A role configured for the k8s auth method
 * An application pod
 
-**Step 6.**
+* Prior to starting lab, spin up a new Minikube cluster
+`minikube start -p lab`
 
-Update the deployment with vault-agent-injector annotations, using kubectl replace.
+**Step 6**
+
+Update the deployment with vault-agent-injector annotations
 
 `kubectl  replace -f nginx-deployment-annotated.yaml`
 
-**Step 7.**
+**Step 7**
 
-The next step is to confirm the annotations were applied to the deployment object.
+Confirm the annotations were applied to the deployment object
 
 `kubectl get deployment nginx-deployment -o json | jq -r .spec.template.metadata.annotations`
 
-The output from the command shows the annotations were updated/patched successfully.
+The output from the command shows the annotations were updated/patched successfully
 
 ```
 {
@@ -30,28 +35,28 @@ The output from the command shows the annotations were updated/patched successfu
 }
 ```
 
-**Step 8.**
+**Step 8**
 
-Confirm if the containers were injected into the nginx application pod.
+Confirm if the containers were injected into the nginx application pod
 
 `kubectl get pods -l app=nginx`
 
 ```
 NAME                               READY   STATUS     RESTARTS   AGE
-nginx-deployment-585f4cdbf-6p4pw   0/2     Init:0/1   0          4s
+<nginx-deployment>   0/2     Init:0/1   0          4s
 ```
 
 Pod status:
   - Init:0/1 means none of the initContainers have completed so far.
-  - PodInitializing or Running means the Pod has already finished executing the Init Containers.
+  - _PodInitializing_ or _Running_ means the Pod has already finished executing the Init Containers.
 
-**Step 9.**
+**Step 9**
 
 Check container logs:
 * Check logs of vault-agent-injector pod
-  * `kubectl logs vault-agent-injector-8496df644f-kfnbb -f`
+  * `kubectl logs <vault-agent-injector-pod> -f`
 * Check logs of initContainer
-  * `kubectl logs nginx-deployment-585f4cdbf-6p4pw -c vault-agent-init -f`
+  * `kubectl logs <nginx-deployment> -c vault-agent-init -f`
 * Check logs of K8s API
   * `kubectl logs kube-apiserver-vault-test -n kube-system | grep inject`
 
@@ -69,29 +74,29 @@ The vault-agent-injector is reporting a 400 error invalid role name "test-app"
    backoff=4m25.27s
 ```
 
-**Step 10.**
+**Step 10**
 
-Check K8s auth config and auth role:
+Check K8s auth role
 
 `kubectl exec vault-0 -- vault list auth/kubernetes/role`
 
 **Step 11**
 
-Update deployment to use the role that exists in Vault for the k8s auth method.
+Update deployment to use the role that exists in Vault for the k8s auth method
 
-Edit the `nginx-deployment-annotated.yaml` file and update the annotation for `vault.hashicorp.com/role` to use the `test-role` role.
+Edit the _nginx-deployment-annotated.yaml_ file and update the `vault.hashicorp.com/role` annotation to use the `test-role` role
 
 **Step 12** 
 
-Redeploy ngnix deployment after updating annotations in yaml 
+Redeploy the Ngnix deployment after updating annotations  
 
 `kubectl replace -f nginx-deployment-annotated.yaml` 
 
 **Step 13** 
 
-Check logs from the init container
+Check logs from the Vault agent init container in the application pod
 
-`kubectl logs -f nginx-deployment-74887f67b9-pml5r vault-agent-init`
+`kubectl logs -f <nginx-deployment> vault-agent-init`
 
 ```
 2023-08-02T19:38:22.990Z [INFO]  agent.auth.handler: authenticating
@@ -108,7 +113,7 @@ Check logs from the init container
 
 **Step 14** 
 
-Check k8s auth role config for `bound_service_account_names`
+Check k8s auth role for _bound_service_account_namespaces_
 
 `kubectl exec vault-0 -- vault read auth/kubernetes/role/test-role`
 
@@ -123,7 +128,7 @@ Check namespace that application pod is running in
 
 `kubectl get pods <nginx_pod> -o json | jq .metadata.namespace`
 
-We see that the app pod is running in the _default_ namespace but the `bound_service_account_namespaces` is set to _vault_
+We see that the appplication pod is running in the _default_ namespace but the `bound_service_account_namespaces` is set to _vault_
 
 **Step 16** 
 
@@ -139,10 +144,11 @@ Confirm that namespace has been updated
 
 **Step 18** 
 
-Check logs from init container
+Check logs from the Vault agent init container in the application pod
 
-`kubectl logs -f nginx-deployment-74887f67b9-pml5r vault-agent-init`
+`kubectl logs -f <nginx-deployment> vault-agent-init`
 
+```
 2023-08-02T19:42:42.216Z [INFO]  agent.auth.handler: authenticating
 2023-08-02T19:42:42.234Z [ERROR] agent.auth.handler: error authenticating:
   error=
@@ -153,16 +159,19 @@ Check logs from init container
   |
   | * service account name not authorized
    backoff=4m37.45s
+```
 
 **Step 19** 
 
-Check app pod for service account
+Check application pod for service account
+
 `kubectl get pods <nginx-pod> -o json | jq .spec.serviceAccount`
 
-We see that the app pod is using the _vault_ service account
+We see that the application pod is using the _vault_ service account
 
 **Step 20**
-Check k8s auth role config for _bound_service_account_namespaces_
+
+Check k8s auth role config for `bound_service_account_names`
 
 `kubectl exec vault-0 -- vault read auth/kubernetes/role/test-role`
 
@@ -171,7 +180,7 @@ bound_service_account_names         [test-sa]
 bound_service_account_namespaces    [default]
 ```
 
-We see that the _bound_service_account_names_ for the role is set to _test-sa_ but the app pod is using the _vault_ service account
+We see that the _bound_service_account_names_ for the role is set to _test-sa_ but the application pod is using the _vault_ service account
 
 **Step 21**
 
@@ -187,12 +196,12 @@ Confirm that service account has been updated
 
 **Step 23**
 
-Check logs from init container
+Check logs from the Vault agent init container in the application pod
 
-`kubectl logs -f nginx-deployment-74887f67b9-pml5r vault-agent-init`
+`kubectl logs -f <nginx-deployment> vault-agent-init`
 
 ```
-kubectl logs nginx-deployment-585f4cdbf-rrxdk  -c vault-agent-init
+kubectl logs <nginx-deployment>  -c vault-agent-init
 2023-08-01T19:27:06.607Z [WARN] (view) vault.read(test/secret): vault.read(test/secret): Error making API request.
 
 URL: GET http://vault.default.svc:8200/v1/test/secret
@@ -205,20 +214,20 @@ Code: 403. Errors:
 **Step 24**
 
 Check policy in Vault
+
 `kubectl exec -ti vault-0 -- vault policy list`
 
-Write k8s auth config role to reference _test-policy_
+Check k8s auth role to see what policies are set
+
+`kubectl exec vault-0 -- vault read auth/kubernetes/role/test-role`
+
+Write k8s auth role to reference _test-policy_ policy
+
 `kubectl exec vault-0 -- vault write auth/kubernetes/role/test-role policies=test-policy`
 
 **Step 25**
 
-Reschedule nginx pod 
-
-`kubectl delete pod nginx-deployment-74887f67b9-k6lhs`
-
-**Step 26**
-
-Check pod status:
+Check pod status
 
 ```
 kubectl get po -l app=nginx
@@ -226,15 +235,15 @@ kubectl get po -l app=nginx
 
 ```
 NAME                               READY   STATUS    RESTARTS   AGE
-nginx-deployment-68f94459b-6fx4z   2/2     Running   0          114m
+<nginx-deployment>   2/2     Running   0          114m
 ```
 
-**Step 27**
+**Step 26**
 
 Re-Check logs of initContainer:
 
 ```
-kubectl logs nginx-deployment-585f4cdbf-4bxwk -c vault-agent-init
+kubectl logs <nginx-deployment> -c vault-agent-init
 
 2023-08-01T16:46:56.895Z [INFO]  sink.file: creating file sink
 2023-08-01T16:46:56.895Z [INFO]  sink.file: file sink configured: path=/home/vault/.vault-token mode=-rw-r-----
@@ -263,12 +272,12 @@ kubectl logs nginx-deployment-585f4cdbf-4bxwk -c vault-agent-init
 2023-08-01T16:46:57.027Z [INFO]  auth.handler: auth handler stopped
 ```
 
-**Step 28**
+**Step 27**
 
 Confirm secret was written to the main app container
 
 ```
-kubectl exec -ti nginx-deployment-585f4cdbf-z795l -c nginx -- cat /vault/secrets/password.txt
+kubectl exec -ti <nginx-deployment> -c nginx -- cat /vault/secrets/password.txt
 ```
 
 <h3>Things to Note</h3>
