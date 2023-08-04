@@ -12,6 +12,10 @@ This is session #2 of learning Kubernetes, while debugging vault-agent-injector.
 
 * Prior to starting lab, spin up a new Minikube cluster
 `minikube start -p lab`
+* Ensure that a Vault license has been exported to the shell in the `VAULT_LICENSE` variable
+* Run the setup.sh [script](https://github.com/jeremyaranas-hashicorp/minikube/blob/main/vault/vault-raft/lab/vault_agent_injector/setup.sh)
+
+
 
 **Step 6**
 
